@@ -1,0 +1,44 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "CMake Build",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "-DCMAKE_CXX_COMPILER=g++",
+                "-DCMAKE_BUILD_TYPE=Debug",
+                "../"
+            ],
+            "group": "build",
+            "options": {
+                "cwd": "build"
+            }
+        },
+        {
+            "label": "Build",
+            "type": "shell",
+            "command": "make",
+            "args": [],
+            "group": "build",
+            "options": {
+                "cwd": "build"
+            }
+        },
+        {
+            "label": "Full Build",
+            "type": "shell",
+            "group": "build",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "CMake Build",
+                "Build"
+            ],
+            "problemMatcher": [
+                "$gcc"
+            ]
+        }
+    ]
+}

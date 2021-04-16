@@ -1,0 +1,1 @@
+scp -r . root@$1:~/ceri-cnn

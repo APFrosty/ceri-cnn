@@ -1,0 +1,6 @@
+build/*
+fpga_build/*
+!.gitkeep
+!fpga_build/Makefile
+!fpga_build/SetupFPGAEnvironment.sh
+!fpga_build/*.aocx

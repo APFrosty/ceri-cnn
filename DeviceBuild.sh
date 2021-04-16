@@ -1,0 +1,1 @@
+aoc src/device/kernels.cl -o fpga_build/kernels.aocx -report -no-interleaving=default
