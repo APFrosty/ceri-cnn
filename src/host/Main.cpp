@@ -54,7 +54,7 @@ int8_t* Main::convolution(int8_t* input, int inputSize, int inputDepth, int8_t* 
     int8_t* output = new int8_t[outputSize*outputSize*outputDepth];
 
     // CPU implementation
-    int i = 0;
+    /*int i = 0;
     while(i < outputSize*outputSize*outputDepth) {
         output[i] = 0;
 
@@ -69,7 +69,65 @@ int8_t* Main::convolution(int8_t* input, int inputSize, int inputDepth, int8_t* 
         }
         output[i] += bias;
         ++i;
-    }
+    }*/
+
+    // OpenCL implementation
+    cl_int result;
+    // Set input
+    cl_mem clInput = clCreateBuffer(context, CL_MEM_READ_WRITE, inputSize*inputSize*inputDepth*sizeof(int8_t), NULL, &result);
+    Helper::assertResult(result, __FILE__, __LINE__);
+    result = clEnqueueWriteBuffer(commandQueue, clInput, CL_TRUE, 0, inputSize*inputSize*inputDepth*sizeof(int8_t), input, 0, NULL, NULL);
+    Helper::assertResult(result, __FILE__, __LINE__);
+    result = clSetKernelArg(convolutionKernel, 0, sizeof(cl_mem), (void*)& clInput);
+    Helper::assertResult(result, __FILE__, __LINE__);
+    // Set input size
+    result = clSetKernelArg(convolutionKernel, 1, sizeof(int), &inputSize);
+    Helper::assertResult(result, __FILE__, __LINE__);
+    // Set input depth
+    result = clSetKernelArg(convolutionKernel, 2, sizeof(int), &inputDepth);
+    Helper::assertResult(result, __FILE__, __LINE__);
+    // Set filters
+    cl_mem clFilters = clCreateBuffer(context, CL_MEM_READ_WRITE, filterSize*filterSize*filterCount*inputDepth*sizeof(int8_t), NULL, &result);
+    Helper::assertResult(result, __FILE__, __LINE__);
+    result = clEnqueueWriteBuffer(commandQueue, clFilters, CL_TRUE, 0, filterSize*filterSize*filterCount*inputDepth*sizeof(int8_t), filters, 0, NULL, NULL);
+    Helper::assertResult(result, __FILE__, __LINE__);
+    result = clSetKernelArg(convolutionKernel, 3, sizeof(cl_mem), (void*)& clFilters);
+    Helper::assertResult(result, __FILE__, __LINE__);
+    // Set biases
+    cl_mem clBiases = clCreateBuffer(context, CL_MEM_READ_WRITE, filterCount*sizeof(int8_t), NULL, &result);
+    Helper::assertResult(result, __FILE__, __LINE__);
+    result = clEnqueueWriteBuffer(commandQueue, clBiases, CL_TRUE, 0, filterCount*sizeof(int8_t), biases, 0, NULL, NULL);
+    Helper::assertResult(result, __FILE__, __LINE__);
+    result = clSetKernelArg(convolutionKernel, 4, sizeof(cl_mem), (void*)& clBiases);
+    Helper::assertResult(result, __FILE__, __LINE__);
+    // Set filter size
+    result = clSetKernelArg(convolutionKernel, 5, sizeof(int), &filterSize);
+    Helper::assertResult(result, __FILE__, __LINE__);
+    // Set filter count
+    result = clSetKernelArg(convolutionKernel, 6, sizeof(int), &filterCount);
+    Helper::assertResult(result, __FILE__, __LINE__);
+    // Set stride
+    result = clSetKernelArg(convolutionKernel, 7, sizeof(int), &stride);
+    Helper::assertResult(result, __FILE__, __LINE__);
+    // Set padding
+    result = clSetKernelArg(convolutionKernel, 8, sizeof(int), &padding);
+    Helper::assertResult(result, __FILE__, __LINE__);
+    // Set output
+    cl_mem clOutput = clCreateBuffer(context, CL_MEM_READ_WRITE, outputSize*outputSize*outputDepth*sizeof(int8_t), NULL, &result);
+    Helper::assertResult(result, __FILE__, __LINE__);
+    result = clSetKernelArg(convolutionKernel, 9, sizeof(cl_mem), (void*)& clOutput);
+    Helper::assertResult(result, __FILE__, __LINE__);
+
+    // Execute
+    size_t globalItemSize = outputSize*outputSize*outputDepth;
+    //globalItemSize = 1;
+    size_t localItemSize = 1;
+    result = clEnqueueNDRangeKernel(commandQueue, convolutionKernel, 1, NULL, &globalItemSize, &localItemSize, 0, NULL, NULL);
+    Helper::assertResult(result, __FILE__, __LINE__);
+
+    // Read output
+    result = clEnqueueReadBuffer(commandQueue, clOutput, CL_TRUE, 0, outputSize * outputSize * outputDepth * sizeof(int8_t), output, 0, NULL, NULL);
+    Helper::assertResult(result, __FILE__, __LINE__);
 
     return output;
 }
@@ -89,8 +147,8 @@ void Main::initOpenCL() {
 
     cl_program program = Helper::createProgram("kernels");
 
-    //applyFilterKernel = clCreateKernel(program, "applyFilter", &result);
-    //BHelper::assertResult(result, __FILE__, __LINE__);
+    convolutionKernel = clCreateKernel(program, "convolution", &result);
+    Helper::assertResult(result, __FILE__, __LINE__);
 }
 
 void Main::run() {
@@ -154,5 +212,5 @@ cl_command_queue Main::getCommandQueue() {
 }
 
 cl_kernel Main::getApplyFilterKernel() {
-    return singleton->applyFilterKernel;
+    return singleton->convolutionKernel;
 }

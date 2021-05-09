@@ -21,6 +21,32 @@ __kernel void applyFilter(__global const char* restrict weights, int filterSize,
     }
 }*/
 
-__kernel void convolution(__global const char* restrict input, int inputSize, int inputDepth, __global const char* restrict filters, int filterSize, int filterCount, int stride, int padding) {
+int determineInputEntry(int outputIndex, int outputSize, int inputSize, int stride, int depth) {
+    int x = outputIndex % (outputSize * outputSize) % outputSize;
+    int y = outputIndex % (outputSize * outputSize) / outputSize;
+    int offset = depth * inputSize * inputSize;
+    int entry = offset + x * stride + y * stride * inputSize;
+    return entry;
+}
 
+__kernel void convolution(__global const char* input, int inputSize, int inputDepth, __global const char* filters, __global const char* restrict biases, int filterSize, int filterCount, int stride, int padding, __global char* output) {
+    int i = get_global_id(0); 
+    //i = 9;
+
+    int outputSize = (inputSize - filterSize) / stride + 1;
+    output[i] = 0;
+
+    __global const char* filter = &filters[i / (outputSize*outputSize) * filterSize * filterSize * inputDepth];
+    char bias = biases[i / (outputSize*outputSize)];
+
+    for(int filterDepth = 0; filterDepth < inputDepth; ++filterDepth) {
+        int inputEntry = determineInputEntry(i, outputSize, inputSize, stride, filterDepth);
+        for(int index = 0; index < filterSize * filterSize; ++index) {
+            output[i] += filter[index + filterDepth*filterSize*filterSize] * input[inputEntry + index % filterSize + index / filterSize * inputSize];
+            //printf("%d * %d -> %d\n", input[inputEntry + index % filterSize + index / filterSize * inputSize], filter[index + filterDepth*filterSize*filterSize], output[i]);
+        }
+    }
+    output[i] += bias;
+
+    //printf("%d: \t\t%d\n", i, (char)output[i]);
 }

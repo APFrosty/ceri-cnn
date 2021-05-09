@@ -23,6 +23,6 @@ private:
     cl_uint numPlatforms;
     cl_context context;
     cl_command_queue commandQueue;
-    cl_kernel applyFilterKernel;
+    cl_kernel convolutionKernel;
 
 };
