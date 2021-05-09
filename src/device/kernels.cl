@@ -1,4 +1,4 @@
-__kernel void vector_add(__global const int* restrict a, __global const int* restrict b, __global int* restrict c) {
+/*__kernel void vector_add(__global const int* restrict a, __global const int* restrict b, __global int* restrict c) {
     int index = get_global_id(0);
     c[index] = a[index] + b[index];
 }
@@ -19,4 +19,8 @@ __kernel void applyFilter(__global const char* restrict weights, int filterSize,
             ++outputIndex;
         }
     }
+}*/
+
+__kernel void convolution(__global const char* restrict input, int inputSize, int inputDepth, __global const char* restrict filters, int filterSize, int filterCount, int stride, int padding) {
+
 }

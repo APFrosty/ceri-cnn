@@ -1,12 +1,9 @@
 #include "Main.h"
 #include "Helper.h"
-#include "Layer.h"
-#include "Filter.h"
 
 Main* Main::singleton = NULL;
 
-int main(int argc, char const *argv[])
-{
+int main(int argc, char const *argv[]) {
     Main main;
     main.initOpenCL();
     main.run();
@@ -15,6 +12,43 @@ int main(int argc, char const *argv[])
 
 Main::Main() {
     singleton = this;
+}
+
+int8_t* Main::convolution(int8_t* input, int inputSize, int inputDepth, int8_t* filters, int8_t* biases, int filterSize, int filterCount, int stride, int padding) {
+
+    auto determineInputEntry = [](int outputIndex, int outputSize, int inputSize, int stride, int depth) {
+        int x = outputIndex % (outputSize * outputSize) % outputSize;
+        int y = outputIndex % (outputSize * outputSize) / outputSize;
+        int offset = depth * inputSize * inputSize;
+        int entry = offset + x * stride + y * stride * inputSize;
+        return entry;
+    };
+    
+    int outputSize = (inputSize - filterSize) / stride + 1;
+    int outputDepth = filterCount;
+
+    int8_t* output = new int8_t[outputSize*outputSize*outputDepth];
+
+    // CPU implementation
+    int i = 0;
+    while(i < outputSize*outputSize*outputDepth) {
+        output[i] = 0;
+
+        // Determine corresponding filter
+        int8_t* filter = &filters[i / (outputSize*outputSize) * filterSize * filterSize * inputDepth];
+        int8_t bias = biases[i / (outputSize*outputSize)];
+
+        for(int filterDepth = 0; filterDepth < inputDepth; ++filterDepth) {
+            int inputEntry = determineInputEntry(i, outputSize, inputSize, stride, filterDepth);
+            for(int index = 0; index < filterSize * filterSize; ++index) {
+                output[i] += filter[index + filterDepth*filterSize*filterSize] * input[inputEntry + index % filterSize + index / filterSize * inputSize];
+            }
+        }
+        output[i] += bias;
+        ++i;
+    }
+
+    return output;
 }
 
 void Main::initOpenCL() {
@@ -32,29 +66,62 @@ void Main::initOpenCL() {
 
     cl_program program = Helper::createProgram("kernels");
 
-    applyFilterKernel = clCreateKernel(program, "applyFilter", &result);
-    Helper::assertResult(result, __FILE__, __LINE__);
+    //applyFilterKernel = clCreateKernel(program, "applyFilter", &result);
+    //BHelper::assertResult(result, __FILE__, __LINE__);
 }
 
 void Main::run() {
-    std::string IMAGE_FILE = "cat.png";
-    int IMAGE_SIZE = Helper::getImageSize(IMAGE_FILE);
-    auto input = Helper::imageToData(IMAGE_FILE);
-    int FILTER_SIZE = 1;
-    int FILTER_COUNT = 96;
+    int8_t input[] = {
+        0, 0, 0, 0, 0, 0, 0,
+        0, 2, 0, 0, 2, 1, 0,
+        0, 1, 0, 1, 1, 1, 0,
+        0, 1, 1, 0, 0, 2, 0,
+        0, 0, 0, 0, 1, 0, 0,
+        0, 1, 1, 1, 1, 2, 0,
+        0, 0, 0, 0, 0, 0, 0,
 
-    int8_t* weights = new int8_t[FILTER_SIZE*FILTER_SIZE*3];
-    for(int i = 0; i < FILTER_SIZE*FILTER_SIZE*3; ++i) {
-        weights[i] = 1;
+        0, 0, 0, 0, 0, 0, 0,
+        0, 2, 2, 1, 1, 0, 0,
+        0, 0, 0, 0, 2, 1, 0,
+        0, 2, 0, 1, 1, 1, 0,
+        0, 2, 2, 0, 0, 0, 0,
+        0, 1, 2, 1, 2, 1, 0,
+        0, 0, 0, 0, 0, 0, 0,
+
+        0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 2, 1, 1, 0, 
+        0, 0, 2, 2, 2, 2, 0, 
+        0, 0, 0, 2, 1, 1, 0, 
+        0, 0, 1, 2, 2, 2, 0, 
+        0, 0, 1, 1, 2, 0, 0, 
+        0, 0, 0, 0, 0, 0, 0
+    };
+
+    int8_t filters[] = {
+        1, 1, 1, 0, 0, 0, -1, -1, 0,
+        -1, -1, -1, -1, -1, 0, 1, 1, 0,
+        0, -1, -1, 1, -1, 0, 1, -1, 0,
+
+        1, -1, -1, 0, 1, -1, 1, 1, 1,
+        1, 1, 0, -1, -1, 0, -1, 0, 0,
+        -1, -1, -1, 0, 1, 0, -1, 0, 0,
+    };
+
+    int8_t biases[] = {1, 0};
+
+    int STRIDE = 2;
+    int PADDING = 0;
+
+    int8_t* output = convolution(input, 7, 3, filters, biases, 3, 2, STRIDE, PADDING);
+
+    for(int i = 0; i < 3*3*2; ++i) {
+        std::cout << (int)output[i];
+        if(i % 3 != 2) {
+            std::cout << ", ";
+        } else {
+            std::cout << "\n" << std::endl;
+        }
     }
-    std::vector<Filter> filters;
-    filters.resize(FILTER_COUNT, Filter(weights, FILTER_SIZE, 3));
-    Layer layer = Layer(filters, 1);
-    std::cout << "output depth: " << layer.getOutputDepth() << std::endl;
-    std::cout << "output size: " << layer.getOutputSize(IMAGE_SIZE) << std::endl;
-
-    auto output = layer.apply(input, IMAGE_SIZE, 3);
-    Helper::saveLayer("output", output, layer.getOutputSize(IMAGE_SIZE), layer.getOutputDepth());
 }
 
 cl_device_id Main::getDevice() {

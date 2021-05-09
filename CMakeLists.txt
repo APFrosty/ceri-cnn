@@ -3,7 +3,7 @@ project(ceri-cnn)
 set(CMAKE_CXX_STANDARD 20)
 
 include_directories(include)
-link_directories(/usr/local/lib)
+link_directories(/usr/lib)
 
 # Executable and source
 file(GLOB SOURCE_FILES ./src/host/*.cpp)

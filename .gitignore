@@ -4,3 +4,4 @@ fpga_build/*
 !fpga_build/Makefile
 !fpga_build/SetupFPGAEnvironment.sh
 !fpga_build/*.aocx
+images/*output*
