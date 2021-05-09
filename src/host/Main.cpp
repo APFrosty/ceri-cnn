@@ -23,6 +23,30 @@ int8_t* Main::convolution(int8_t* input, int inputSize, int inputDepth, int8_t* 
         int entry = offset + x * stride + y * stride * inputSize;
         return entry;
     };
+
+    if(padding != 0) {
+        int size = inputSize + padding * 2;
+        int8_t* used = new int8_t[size*size*inputDepth];
+        memset(used, 0, size*size*inputDepth);
+
+
+        for(int i = 0; i < size*size*inputDepth; ++i) {
+            int x = i % (size*size) % size;
+            int y = i % (size*size) / size;
+            int depth = i / (size*size);
+            if(x < padding || x >= size - padding || y < padding || y >= size - padding) {
+                
+            } else {
+                x -= padding;
+                y -= padding;
+                int index = depth * inputSize * inputSize + x + y * inputSize;
+                used[i] = input[index];
+            }
+        }
+
+        input = used;
+        inputSize = size;
+    }
     
     int outputSize = (inputSize - filterSize) / stride + 1;
     int outputDepth = filterCount;
@@ -34,7 +58,6 @@ int8_t* Main::convolution(int8_t* input, int inputSize, int inputDepth, int8_t* 
     while(i < outputSize*outputSize*outputDepth) {
         output[i] = 0;
 
-        // Determine corresponding filter
         int8_t* filter = &filters[i / (outputSize*outputSize) * filterSize * filterSize * inputDepth];
         int8_t bias = biases[i / (outputSize*outputSize)];
 
@@ -72,29 +95,23 @@ void Main::initOpenCL() {
 
 void Main::run() {
     int8_t input[] = {
-        0, 0, 0, 0, 0, 0, 0,
-        0, 2, 0, 0, 2, 1, 0,
-        0, 1, 0, 1, 1, 1, 0,
-        0, 1, 1, 0, 0, 2, 0,
-        0, 0, 0, 0, 1, 0, 0,
-        0, 1, 1, 1, 1, 2, 0,
-        0, 0, 0, 0, 0, 0, 0,
+        2, 0, 0, 2, 1,
+        1, 0, 1, 1, 1,
+        1, 1, 0, 0, 2,
+        0, 0, 0, 1, 0,
+        1, 1, 1, 1, 2,
 
-        0, 0, 0, 0, 0, 0, 0,
-        0, 2, 2, 1, 1, 0, 0,
-        0, 0, 0, 0, 2, 1, 0,
-        0, 2, 0, 1, 1, 1, 0,
-        0, 2, 2, 0, 0, 0, 0,
-        0, 1, 2, 1, 2, 1, 0,
-        0, 0, 0, 0, 0, 0, 0,
+        2, 2, 1, 1, 0,
+        0, 0, 0, 2, 1,
+        2, 0, 1, 1, 1,
+        2, 2, 0, 0, 0,
+        1, 2, 1, 2, 1,
 
-        0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 2, 1, 1, 0, 
-        0, 0, 2, 2, 2, 2, 0, 
-        0, 0, 0, 2, 1, 1, 0, 
-        0, 0, 1, 2, 2, 2, 0, 
-        0, 0, 1, 1, 2, 0, 0, 
-        0, 0, 0, 0, 0, 0, 0
+        0, 0, 2, 1, 1,
+        0, 2, 2, 2, 2,
+        0, 0, 2, 1, 1,
+        0, 1, 2, 2, 2,
+        0, 1, 1, 2, 0,
     };
 
     int8_t filters[] = {
@@ -110,16 +127,16 @@ void Main::run() {
     int8_t biases[] = {1, 0};
 
     int STRIDE = 2;
-    int PADDING = 0;
+    int PADDING = 1;
 
-    int8_t* output = convolution(input, 7, 3, filters, biases, 3, 2, STRIDE, PADDING);
+    int8_t* output = convolution(input, 5, 3, filters, biases, 3, 2, STRIDE, PADDING);
 
     for(int i = 0; i < 3*3*2; ++i) {
         std::cout << (int)output[i];
         if(i % 3 != 2) {
             std::cout << ", ";
         } else {
-            std::cout << "\n" << std::endl;
+            std::cout << "\n";
         }
     }
 }
