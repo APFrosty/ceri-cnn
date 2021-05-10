@@ -170,3 +170,17 @@ int8_t* CNN::maxPooling(int8_t* input, int inputSize, int inputDepth, int stride
 
     return output;
 }
+
+int8_t* CNN::fullyConnected(int8_t* input, int inputLength, int8_t* weights, int weightCount) {
+    int8_t* output = new int8_t[weightCount];
+
+    // CPU implementation
+    for(int i = 0; i < weightCount; ++i) {
+        output[i] = 0;
+        for(int j = 0; j < inputLength; ++j) {
+            output[i] += weights[i] * input[j];
+        }
+    }
+
+    return output;
+}

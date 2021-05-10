@@ -4,11 +4,12 @@
 void Testing::testingSequence() {
     convolutionTest();
     poolingTest();
+    fullyConnectedTest();
 }
 
 void Testing::convolutionTest() {
 
-    std::cout << "Convolution Test: " << std::endl;
+    std::cout << "Convolution Test: ";
     std::string log = "";
     bool allGood = true;
 
@@ -72,7 +73,7 @@ void Testing::convolutionTest() {
 
 void Testing::poolingTest() {
 
-    std::cout << "Max Pooling Test: " << std::endl;
+    std::cout << "Max Pooling Test: ";
     std::string log = "";
     bool allGood = true;
 
@@ -96,6 +97,40 @@ void Testing::poolingTest() {
     for(int i = 0; i < 4; ++i) {
         if(expected[i] != output[i]) {
             log += "ERROR: expected[" + std::to_string(i)  +"] != output[" + std::to_string(i) + "] ----> " + std::to_string(expected[i]) + " != " + std::to_string(output[i]) + "\n";
+            allGood = false;
+        }
+    }
+
+    std::cout << (allGood ? "SUCCESS" : "FAILED") << std::endl;
+    if(!allGood) {
+        std::cout << log;
+    }
+
+    delete[] output;
+}
+
+void Testing::fullyConnectedTest() {
+    std::cout << "Fully Connected Test: ";
+    std::string log = "";
+    bool allGood = true;
+
+    int8_t input[] = {
+        3, -4, -7, 1, 21, 14
+    };
+
+    int8_t weights[] = {
+        4, 6, 9, 10, 12, 18, -2, 14
+    };
+
+    uint8_t expected[] = {
+        112, 168, 252, 24, 80, 248, 0xC8, 136
+    };
+
+    int8_t* output = CNN::fullyConnected(input, 6, weights, 8);
+
+    for(int i = 0; i < 8; ++i) {
+        if(memcmp(&output[i], &expected[i], sizeof(int8_t)) != 0) {
+            log += "ERROR: expected[" + std::to_string(i)  +"] != output[" + std::to_string(i) + "] ----> " + std::to_string((int8_t)expected[i]) + " != " + std::to_string(output[i]) + "\n";
             allGood = false;
         }
     }
