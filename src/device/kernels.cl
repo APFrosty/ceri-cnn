@@ -29,9 +29,15 @@ int determineInputEntry(int outputIndex, int outputSize, int inputSize, int stri
     return entry;
 }
 
+/*char max(char a, char b) {
+    if(a > b) {
+        return a;
+    }
+    return b;
+}*/
+
 __kernel void convolution(__global const char* input, int inputSize, int inputDepth, __global const char* filters, __global const char* restrict biases, int filterSize, int filterCount, int stride, int padding, __global char* output) {
     int i = get_global_id(0); 
-    //i = 9;
 
     int outputSize = (inputSize - filterSize) / stride + 1;
     output[i] = 0;
@@ -43,10 +49,26 @@ __kernel void convolution(__global const char* input, int inputSize, int inputDe
         int inputEntry = determineInputEntry(i, outputSize, inputSize, stride, filterDepth);
         for(int index = 0; index < filterSize * filterSize; ++index) {
             output[i] += filter[index + filterDepth*filterSize*filterSize] * input[inputEntry + index % filterSize + index / filterSize * inputSize];
-            //printf("%d * %d -> %d\n", input[inputEntry + index % filterSize + index / filterSize * inputSize], filter[index + filterDepth*filterSize*filterSize], output[i]);
         }
     }
     output[i] += bias;
+}
 
-    //printf("%d: \t\t%d\n", i, (char)output[i]);
+__kernel void maxPooling(__global const char* input, int inputSize, int inputDepth, int stride, int padding, int poolingSize, __global char* output) {
+    int i = get_global_id(0);
+
+    int outputSize = (inputSize - poolingSize) / stride + 1;
+
+    int depth = i / (outputSize * outputSize);
+    int position = i % (outputSize * outputSize);
+    int x = (position % outputSize) * stride;
+    int y = (position / outputSize) * stride;
+    int entry = (depth * inputSize * inputSize) + y * inputSize + x;
+    char maxValue = 0x00;
+    for(int j = 0; j < poolingSize * poolingSize; ++j) {
+        x = j % poolingSize;
+        y = j / poolingSize;
+        maxValue = max(maxValue, input[entry + y * inputSize + x]);
+    }
+    output[i] = maxValue;
 }

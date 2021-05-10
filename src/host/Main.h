@@ -15,6 +15,7 @@ public:
     static cl_context getContext();
     static cl_command_queue getCommandQueue();
     static cl_kernel getConvolutionKernel();
+    static cl_kernel getMaxPoolingKernel();
 
 private:
     static Main* singleton;
@@ -25,6 +26,7 @@ private:
     cl_context context;
     cl_command_queue commandQueue;
     cl_kernel convolutionKernel;
+    cl_kernel maxPoolingKernel;
 
 };
 

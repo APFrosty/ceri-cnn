@@ -117,21 +117,52 @@ int8_t* CNN::maxPooling(int8_t* input, int inputSize, int inputDepth, int stride
         inputSize = inputSize + padding * 2;
     }
 
-    // CPU implementation
-    for(int i = 0; i < outputSize * outputSize * inputDepth; ++i) {
-        int depth = i / (outputSize * outputSize);
-        int position = i % (outputSize * outputSize);
-        int x = (position % outputSize) * stride;
-        int y = (position / outputSize) * stride;
-        int entry = (depth * inputSize * inputSize) + y * inputSize + x;
-        int8_t max = 0;
-        for(int j = 0; j < poolingSize * poolingSize; ++j) {
-            x = j % poolingSize;
-            y = j / poolingSize;
-            max = std::max(max, input[entry + y * inputSize + x]);
-        }
-        output[i] = max;
+    // OpenCL implementation
+    cl_context context = Main::getContext();
+    cl_command_queue commandQueue = Main::getCommandQueue();
+    cl_kernel maxPoolingKernel = Main::getMaxPoolingKernel();
+    cl_int result;
+    cl_mem clOutput;
+    {
+        // Set input
+        cl_mem clInput = clCreateBuffer(context, CL_MEM_READ_WRITE, inputSize*inputSize*inputDepth*sizeof(int8_t), NULL, &result);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        result = clEnqueueWriteBuffer(commandQueue, clInput, CL_TRUE, 0, inputSize*inputSize*inputDepth*sizeof(int8_t), input, 0, NULL, NULL);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        result = clSetKernelArg(maxPoolingKernel, 0, sizeof(cl_mem), (void*)& clInput);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        // Set input size
+        result = clSetKernelArg(maxPoolingKernel, 1, sizeof(int), &inputSize);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        // Set input depth
+        result = clSetKernelArg(maxPoolingKernel, 2, sizeof(int), &inputDepth);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        // Set stride
+        result = clSetKernelArg(maxPoolingKernel, 3, sizeof(int), &stride);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        // Set padding
+        result = clSetKernelArg(maxPoolingKernel, 4, sizeof(int), &padding);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        // Set pooling size
+        result = clSetKernelArg(maxPoolingKernel, 5, sizeof(int), &poolingSize);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        // Set output
+        clOutput = clCreateBuffer(context, CL_MEM_READ_WRITE, outputSize*outputSize*inputDepth*sizeof(int8_t), NULL, &result);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        result = clSetKernelArg(maxPoolingKernel, 6, sizeof(cl_mem), (void*)& clOutput);
+        Helper::assertResult(result, __FILE__, __LINE__);
     }
+
+    // Execute
+    size_t globalItemSize = outputSize*outputSize*inputDepth;
+    //globalItemSize = 1;
+    size_t localItemSize = 1;
+    result = clEnqueueNDRangeKernel(commandQueue, maxPoolingKernel, 1, NULL, &globalItemSize, &localItemSize, 0, NULL, NULL);
+    Helper::assertResult(result, __FILE__, __LINE__);
+
+    // Read output
+    result = clEnqueueReadBuffer(commandQueue, clOutput, CL_TRUE, 0, outputSize * outputSize * inputDepth * sizeof(int8_t), output, 0, NULL, NULL);
+    Helper::assertResult(result, __FILE__, __LINE__);
 
     if(padding != 0) {
         delete[] input;
