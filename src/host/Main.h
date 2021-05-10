@@ -16,6 +16,7 @@ public:
     static cl_command_queue getCommandQueue();
     static cl_kernel getConvolutionKernel();
     static cl_kernel getMaxPoolingKernel();
+    static cl_kernel getFullyConnectedKernel();
 
 private:
     static Main* singleton;
@@ -27,6 +28,7 @@ private:
     cl_command_queue commandQueue;
     cl_kernel convolutionKernel;
     cl_kernel maxPoolingKernel;
+    cl_kernel fullyConnectedKernel;
 
 };
 

@@ -72,3 +72,11 @@ __kernel void maxPooling(__global const char* input, int inputSize, int inputDep
     }
     output[i] = maxValue;
 }
+
+__kernel void fullyConnected(__global char* restrict input, int inputLength, __global char* restrict weights, int weightCount, __global char* output) {
+    int i = get_global_id(0);
+    output[i] = 0;
+    for(int j = 0; j < inputLength; ++j) {
+        output[i] += weights[i] * input[j];
+    }
+}

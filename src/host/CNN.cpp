@@ -155,7 +155,6 @@ int8_t* CNN::maxPooling(int8_t* input, int inputSize, int inputDepth, int stride
 
     // Execute
     size_t globalItemSize = outputSize*outputSize*inputDepth;
-    //globalItemSize = 1;
     size_t localItemSize = 1;
     result = clEnqueueNDRangeKernel(commandQueue, maxPoolingKernel, 1, NULL, &globalItemSize, &localItemSize, 0, NULL, NULL);
     Helper::assertResult(result, __FILE__, __LINE__);
@@ -174,13 +173,49 @@ int8_t* CNN::maxPooling(int8_t* input, int inputSize, int inputDepth, int stride
 int8_t* CNN::fullyConnected(int8_t* input, int inputLength, int8_t* weights, int weightCount) {
     int8_t* output = new int8_t[weightCount];
 
-    // CPU implementation
-    for(int i = 0; i < weightCount; ++i) {
-        output[i] = 0;
-        for(int j = 0; j < inputLength; ++j) {
-            output[i] += weights[i] * input[j];
-        }
+    // OpenCL implementation
+    cl_context context = Main::getContext();
+    cl_command_queue commandQueue = Main::getCommandQueue();
+    cl_kernel fullyConnectedKernel = Main::getFullyConnectedKernel();
+    cl_int result;
+    cl_mem clOutput;
+    {
+        // Set input
+        cl_mem clInput = clCreateBuffer(context, CL_MEM_READ_WRITE, inputLength*sizeof(int8_t), NULL, &result);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        result = clEnqueueWriteBuffer(commandQueue, clInput, CL_TRUE, 0, inputLength*sizeof(int8_t), input, 0, NULL, NULL);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        result = clSetKernelArg(fullyConnectedKernel, 0, sizeof(cl_mem), (void*)& clInput);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        // Set input length
+        result = clSetKernelArg(fullyConnectedKernel, 1, sizeof(int), &inputLength);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        // Set weights
+        cl_mem clWeights = clCreateBuffer(context, CL_MEM_READ_WRITE, weightCount*sizeof(int8_t), NULL, &result);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        result = clEnqueueWriteBuffer(commandQueue, clWeights, CL_TRUE, 0, weightCount*sizeof(int8_t), weights, 0, NULL, NULL);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        result = clSetKernelArg(fullyConnectedKernel, 2, sizeof(cl_mem), (void*)& clWeights);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        // Set weight count
+        result = clSetKernelArg(fullyConnectedKernel, 3, sizeof(int), &weightCount);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        // Set output
+        clOutput = clCreateBuffer(context, CL_MEM_READ_WRITE, weightCount*sizeof(int8_t), NULL, &result);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        result = clSetKernelArg(fullyConnectedKernel, 4, sizeof(cl_mem), (void*)& clOutput);
+        Helper::assertResult(result, __FILE__, __LINE__);
     }
+
+    // Execute
+    size_t globalItemSize = weightCount;
+    size_t localItemSize = 1;
+    result = clEnqueueNDRangeKernel(commandQueue, fullyConnectedKernel, 1, NULL, &globalItemSize, &localItemSize, 0, NULL, NULL);
+    Helper::assertResult(result, __FILE__, __LINE__);
+
+    // Read output
+    result = clEnqueueReadBuffer(commandQueue, clOutput, CL_TRUE, 0, weightCount * sizeof(int8_t), output, 0, NULL, NULL);
+    Helper::assertResult(result, __FILE__, __LINE__);
 
     return output;
 }

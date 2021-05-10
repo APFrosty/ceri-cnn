@@ -35,6 +35,9 @@ void Main::initOpenCL() {
 
     maxPoolingKernel = clCreateKernel(program, "maxPooling", &result);
     Helper::assertResult(result, __FILE__, __LINE__);
+
+    fullyConnectedKernel = clCreateKernel(program, "fullyConnected", &result);
+    Helper::assertResult(result, __FILE__, __LINE__);
 }
 
 void Main::run() {
@@ -59,4 +62,8 @@ cl_kernel Main::getConvolutionKernel() {
 
 cl_kernel Main::getMaxPoolingKernel() {
     return singleton->maxPoolingKernel;
+}
+
+cl_kernel Main::getFullyConnectedKernel() {
+    return singleton->fullyConnectedKernel;
 }
