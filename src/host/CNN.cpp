@@ -2,7 +2,7 @@
 #include "Helper.h"
 #include "Main.h"
 
-int8_t* CNN::applyPadding(int8_t* input, int inputSize, int inputDepth, int padding) {
+int8_t* CNN::Tools::applyPadding(int8_t* input, int inputSize, int inputDepth, int padding) {
     int size = inputSize * padding + 2;
     int8_t* padded = new int8_t[size*size*inputDepth];
     memset(padded, 0, size*size*inputDepth);
@@ -24,10 +24,68 @@ int8_t* CNN::applyPadding(int8_t* input, int inputSize, int inputDepth, int padd
     return padded;
 }
 
+int* CNN::Tools::Convolution::createBiasIndices(int outputSize, int outputDepth) {
+    int* array = new int[outputSize * outputSize * outputDepth];
+    for(int i = 0; i < outputSize * outputSize * outputDepth; ++i) {
+        array[i] = i / (outputSize * outputSize);
+    }
+    return array;
+}
+
+int* CNN::Tools::Convolution::createXArray(int size, int depth) {
+    int* array = new int[size * size * depth];
+    for(int i = 0; i < size*size*depth; ++i) {
+        array[i] = i % size;
+    }
+    return array;
+}
+
+int* CNN::Tools::Convolution::createYArray(int size, int depth) {
+    int* array = new int[size * size * depth];
+    for(int i = 0; i < size*size*depth; ++i) {
+        array[i] = i % (size*size) / size;
+    }
+    return array;
+}
+
+int* CNN::Tools::Convolution::createFilterIndices(int outputSize, int outputDepth, int filterSize, int inputDepth) {
+    int* array = new int[outputSize * outputSize * outputDepth];
+    for(int i = 0; i < outputSize * outputSize * outputDepth; ++i) {
+        array[i] = i / (outputSize*outputSize) * filterSize * filterSize * inputDepth;
+    }
+    return array;
+}
+
+int* CNN::Tools::Pooling::createDepthsArray(int size, int depth) {
+    int* array = new int[size * size * depth];
+    for(int i = 0; i < size*size*depth; ++i) {
+        array[i] = i / (size*size);
+    }
+    return array;
+}
+
+int* CNN::Tools::Pooling::createXArray(int outputSize, int outputDepth, int stride) {
+    int* array = new int[outputSize * outputSize * outputDepth];
+    for(int i = 0; i < outputSize * outputSize * outputDepth; ++i) {
+        int position = i % (outputSize * outputSize);
+        array[i] = (position % outputSize) * stride;
+    }
+    return array;
+}
+
+int* CNN::Tools::Pooling::createYArray(int outputSize, int outputDepth, int stride) {
+    int* array = new int[outputSize * outputSize * outputDepth];
+    for(int i = 0; i < outputSize * outputSize * outputDepth; ++i) {
+        int position = i % (outputSize * outputSize);
+        array[i] = (position / outputSize) * stride;
+    }
+    return array;
+}
+
 int8_t* CNN::convolution(int8_t* input, int inputSize, int inputDepth, int8_t* filters, int8_t* biases, int filterSize, int filterCount, int stride, int padding) {
 
     if(padding != 0) {
-        input = applyPadding(input, inputSize, inputDepth, padding);
+        input = Tools::applyPadding(input, inputSize, inputDepth, padding);
         inputSize = inputSize + padding * 2;
     }
     
@@ -87,6 +145,33 @@ int8_t* CNN::convolution(int8_t* input, int inputSize, int inputDepth, int8_t* f
         Helper::assertResult(result, __FILE__, __LINE__);
         result = clSetKernelArg(convolutionKernel, 9, sizeof(cl_mem), (void*)& clOutput);
         Helper::assertResult(result, __FILE__, __LINE__);
+        // Set Xs
+        int* xs = Tools::Convolution::createXArray(outputSize, outputDepth);
+        cl_mem clXs = clCreateBuffer(context, CL_MEM_READ_WRITE, outputSize * outputSize * outputDepth * sizeof(int), NULL, &result);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        result = clEnqueueWriteBuffer(commandQueue, clXs, CL_TRUE, 0, outputSize*outputSize*outputDepth*sizeof(int), xs, 0, NULL, NULL);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        result = clSetKernelArg(convolutionKernel, 10, sizeof(cl_mem), (void*)& clXs);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        // Set Ys
+        int* ys = Tools::Convolution::createYArray(outputSize, outputDepth);
+        cl_mem clYs = clCreateBuffer(context, CL_MEM_READ_WRITE, outputSize * outputSize * outputDepth * sizeof(int), NULL, &result);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        result = clEnqueueWriteBuffer(commandQueue, clYs, CL_TRUE, 0, outputSize*outputSize*outputDepth*sizeof(int), ys, 0, NULL, NULL);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        result = clSetKernelArg(convolutionKernel, 11, sizeof(cl_mem), (void*)& clYs);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        // Set biases indices
+        int* indices = Tools::Convolution::createBiasIndices(outputSize, outputDepth);
+        cl_mem clIndices = clCreateBuffer(context, CL_MEM_READ_WRITE, outputSize * outputSize * outputDepth * sizeof(int), NULL, &result);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        result = clEnqueueWriteBuffer(commandQueue, clIndices, CL_TRUE, 0, outputSize*outputSize*outputDepth*sizeof(int), indices, 0, NULL, NULL);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        result = clSetKernelArg(convolutionKernel, 12, sizeof(cl_mem), (void*)& clIndices);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        // Set output size
+        result = clSetKernelArg(convolutionKernel, 13, sizeof(int), &outputSize);
+        Helper::assertResult(result, __FILE__, __LINE__);
     }
 
     // Execute
@@ -113,7 +198,7 @@ int8_t* CNN::maxPooling(int8_t* input, int inputSize, int inputDepth, int stride
     int8_t* output = new int8_t[inputDepth * outputSize * outputSize];
 
     if(padding != 0) {
-        input = applyPadding(input, inputSize, inputDepth, padding);
+        input = Tools::applyPadding(input, inputSize, inputDepth, padding);
         inputSize = inputSize + padding * 2;
     }
 
@@ -151,10 +236,43 @@ int8_t* CNN::maxPooling(int8_t* input, int inputSize, int inputDepth, int stride
         Helper::assertResult(result, __FILE__, __LINE__);
         result = clSetKernelArg(maxPoolingKernel, 6, sizeof(cl_mem), (void*)& clOutput);
         Helper::assertResult(result, __FILE__, __LINE__);
+        // Set Xs
+        int* xs = Tools::Pooling::createXArray(outputSize, inputDepth, stride);
+        cl_mem clXs = clCreateBuffer(context, CL_MEM_READ_WRITE, outputSize * outputSize * inputDepth * sizeof(int), NULL, &result);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        result = clEnqueueWriteBuffer(commandQueue, clXs, CL_TRUE, 0, outputSize*outputSize*inputDepth*sizeof(int), xs, 0, NULL, NULL);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        result = clSetKernelArg(maxPoolingKernel, 7, sizeof(cl_mem), (void*)& clXs);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        // Set Ys
+        int* ys = Tools::Pooling::createYArray(outputSize, inputDepth, stride);
+        cl_mem clYs = clCreateBuffer(context, CL_MEM_READ_WRITE, outputSize * outputSize * inputDepth * sizeof(int), NULL, &result);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        result = clEnqueueWriteBuffer(commandQueue, clYs, CL_TRUE, 0, outputSize*outputSize*inputDepth*sizeof(int), ys, 0, NULL, NULL);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        result = clSetKernelArg(maxPoolingKernel, 8, sizeof(cl_mem), (void*)& clYs);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        // Set depths
+        int* depths = Tools::Pooling::createDepthsArray(outputSize, inputDepth);
+        cl_mem clDepths = clCreateBuffer(context, CL_MEM_READ_WRITE, outputSize * outputSize * inputDepth * sizeof(int), NULL, &result);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        result = clEnqueueWriteBuffer(commandQueue, clDepths, CL_TRUE, 0, outputSize*outputSize*inputDepth*sizeof(int), depths, 0, NULL, NULL);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        result = clSetKernelArg(maxPoolingKernel, 9, sizeof(cl_mem), (void*)& clDepths);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        // Set output size
+        result = clSetKernelArg(maxPoolingKernel, 10, sizeof(int), &outputSize);
+        Helper::assertResult(result, __FILE__, __LINE__);
+
+        // Clean
+        delete[] xs;
+        delete[] ys;
+        delete[] depths;
     }
 
     // Execute
     size_t globalItemSize = outputSize*outputSize*inputDepth;
+    //globalItemSize = 1;
     size_t localItemSize = 1;
     result = clEnqueueNDRangeKernel(commandQueue, maxPoolingKernel, 1, NULL, &globalItemSize, &localItemSize, 0, NULL, NULL);
     Helper::assertResult(result, __FILE__, __LINE__);
@@ -216,6 +334,21 @@ int8_t* CNN::fullyConnected(int8_t* input, int inputLength, int8_t* weights, int
     // Read output
     result = clEnqueueReadBuffer(commandQueue, clOutput, CL_TRUE, 0, weightCount * sizeof(int8_t), output, 0, NULL, NULL);
     Helper::assertResult(result, __FILE__, __LINE__);
+
+    return output;
+}
+
+float* CNN::softmax(float* input, int inputLength) {
+    float* output = new float[inputLength];
+
+    float sum = 0.0f;
+    for(int i = 0; i < inputLength; ++i) {
+        sum += input[i];
+    }
+
+    for(int i = 0; i < inputLength; ++i) {
+        output[i] = std::exp(input[i]) / sum; 
+    }
 
     return output;
 }

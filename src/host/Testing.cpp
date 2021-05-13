@@ -2,9 +2,10 @@
 #include "CNN.h"
 
 void Testing::testingSequence() {
-    convolutionTest();
-    poolingTest();
-    fullyConnectedTest();
+    //convolutionTest();
+    //poolingTest();
+    //fullyConnectedTest();
+    MNISTTest();
 }
 
 void Testing::convolutionTest() {
@@ -141,4 +142,58 @@ void Testing::fullyConnectedTest() {
     }
 
     delete[] output;
+}
+
+void Testing::MNISTTest() {
+
+    std::cout << "MNIST Test: ";
+
+    {
+        int INPUT_SIZES[] = {28, 14};
+        int INPUT_DEPTHS[] = {1, 32};
+
+        int FILTER_SIZES[] = {3, 3};
+        int FILTER_COUNTS[] = {32, 64};
+
+        int STRIDES[] = {1, 1};
+        int PADDINGS[] = {1, 1};
+
+        for(int i = 0; i < 2; ++i) {
+            int8_t* input = new int8_t[INPUT_SIZES[i]*INPUT_SIZES[i]*INPUT_DEPTHS[i]];
+            int8_t* filters = new int8_t[FILTER_SIZES[i]*FILTER_SIZES[i]*INPUT_DEPTHS[i]];
+            int8_t* biases = new int8_t[FILTER_COUNTS[i]];
+            int8_t* output = CNN::convolution(input, INPUT_SIZES[i], INPUT_DEPTHS[i], filters, biases, FILTER_SIZES[i], FILTER_COUNTS[i], STRIDES[i], PADDINGS[i]);
+            delete[] output;
+        }
+    }
+
+    {
+        int INPUT_SIZES[] = {28, 14};
+        int INPUT_DEPTHS[] = {32, 64};
+
+        int POOLING_SIZES[] = {2, 2};
+
+        int STRIDES[] = {1, 1};
+        int PADDINGS[] = {1, 1};
+
+        for(int i = 0; i < 2; ++i) {
+            int8_t* input = new int8_t[INPUT_SIZES[i]*INPUT_SIZES[i]*INPUT_DEPTHS[i]];
+            int8_t* filters = new int8_t[POOLING_SIZES[i]*POOLING_SIZES[i]*INPUT_DEPTHS[i]];
+            int8_t* output = CNN::maxPooling(input, INPUT_SIZES[i], INPUT_DEPTHS[i], STRIDES[i], PADDINGS[i], POOLING_SIZES[i]);
+            delete[] output;
+        }
+    }
+
+    {
+        int INPUT_LENGHTS[] = {3136, 128};
+        int WEIGHT_COUNTS[] = {128, 10};
+
+        for(int i = 0; i < 2; ++i) {
+            int8_t* input = new int8_t[INPUT_LENGHTS[i]];
+            int8_t* weights = new int8_t[WEIGHT_COUNTS[i]];
+            int8_t* output = CNN::fullyConnected(input, INPUT_LENGHTS[i], weights, WEIGHT_COUNTS[i]);
+        }
+    }
+
+    std::cout << "ENDED" << std::endl;
 }

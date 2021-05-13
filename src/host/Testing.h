@@ -5,4 +5,5 @@ namespace Testing {
     void convolutionTest();
     void poolingTest();
     void fullyConnectedTest();
+    void MNISTTest();
 }

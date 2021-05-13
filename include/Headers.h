@@ -8,5 +8,6 @@
 #include <cstdio>
 #include <cmath>
 #include <cstring>
+#include <ctime>
 
 #include <CL/cl.h>
