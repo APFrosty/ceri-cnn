@@ -2,10 +2,10 @@
 #include "Helper.h"
 #include "Main.h"
 
-int8_t* CNN::Tools::applyPadding(int8_t* input, int inputSize, int inputDepth, int padding) {
+float* CNN::Tools::applyPadding(float* input, int inputSize, int inputDepth, int padding) {
     int size = inputSize * padding + 2;
-    int8_t* padded = new int8_t[size*size*inputDepth];
-    memset(padded, 0, size*size*inputDepth);
+    float* padded = new float[size*size*inputDepth];
+    memset(padded, 0.0f, size*size*inputDepth*sizeof(float));
 
     for(int i = 0; i < size*size*inputDepth; ++i) {
         int x = i % (size*size) % size;
@@ -82,7 +82,7 @@ int* CNN::Tools::Pooling::createYArray(int outputSize, int outputDepth, int stri
     return array;
 }
 
-int8_t* CNN::convolution(int8_t* input, int inputSize, int inputDepth, int8_t* filters, int8_t* biases, int filterSize, int filterCount, int stride, int padding) {
+float* CNN::convolution(float* input, int inputSize, int inputDepth, float* filters, float* biases, int filterSize, int filterCount, int stride, int padding) {
 
     if(padding != 0) {
         input = Tools::applyPadding(input, inputSize, inputDepth, padding);
@@ -92,7 +92,7 @@ int8_t* CNN::convolution(int8_t* input, int inputSize, int inputDepth, int8_t* f
     int outputSize = (inputSize - filterSize) / stride + 1;
     int outputDepth = filterCount;
 
-    int8_t* output = new int8_t[outputSize*outputSize*outputDepth];
+    float* output = new float[outputSize*outputSize*outputDepth];
 
     // OpenCL implementation
     cl_context context = Main::getContext();
@@ -102,9 +102,9 @@ int8_t* CNN::convolution(int8_t* input, int inputSize, int inputDepth, int8_t* f
     cl_mem clOutput;
     {
         // Set input
-        cl_mem clInput = clCreateBuffer(context, CL_MEM_READ_WRITE, inputSize*inputSize*inputDepth*sizeof(int8_t), NULL, &result);
+        cl_mem clInput = clCreateBuffer(context, CL_MEM_READ_WRITE, inputSize*inputSize*inputDepth*sizeof(float), NULL, &result);
         Helper::assertResult(result, __FILE__, __LINE__);
-        result = clEnqueueWriteBuffer(commandQueue, clInput, CL_TRUE, 0, inputSize*inputSize*inputDepth*sizeof(int8_t), input, 0, NULL, NULL);
+        result = clEnqueueWriteBuffer(commandQueue, clInput, CL_TRUE, 0, inputSize*inputSize*inputDepth*sizeof(float), input, 0, NULL, NULL);
         Helper::assertResult(result, __FILE__, __LINE__);
         result = clSetKernelArg(convolutionKernel, 0, sizeof(cl_mem), (void*)& clInput);
         Helper::assertResult(result, __FILE__, __LINE__);
@@ -115,16 +115,16 @@ int8_t* CNN::convolution(int8_t* input, int inputSize, int inputDepth, int8_t* f
         result = clSetKernelArg(convolutionKernel, 2, sizeof(int), &inputDepth);
         Helper::assertResult(result, __FILE__, __LINE__);
         // Set filters
-        cl_mem clFilters = clCreateBuffer(context, CL_MEM_READ_WRITE, filterSize*filterSize*filterCount*inputDepth*sizeof(int8_t), NULL, &result);
+        cl_mem clFilters = clCreateBuffer(context, CL_MEM_READ_WRITE, filterSize*filterSize*filterCount*inputDepth*sizeof(float), NULL, &result);
         Helper::assertResult(result, __FILE__, __LINE__);
-        result = clEnqueueWriteBuffer(commandQueue, clFilters, CL_TRUE, 0, filterSize*filterSize*filterCount*inputDepth*sizeof(int8_t), filters, 0, NULL, NULL);
+        result = clEnqueueWriteBuffer(commandQueue, clFilters, CL_TRUE, 0, filterSize*filterSize*filterCount*inputDepth*sizeof(float), filters, 0, NULL, NULL);
         Helper::assertResult(result, __FILE__, __LINE__);
         result = clSetKernelArg(convolutionKernel, 3, sizeof(cl_mem), (void*)& clFilters);
         Helper::assertResult(result, __FILE__, __LINE__);
         // Set biases
-        cl_mem clBiases = clCreateBuffer(context, CL_MEM_READ_WRITE, filterCount*sizeof(int8_t), NULL, &result);
+        cl_mem clBiases = clCreateBuffer(context, CL_MEM_READ_WRITE, filterCount*sizeof(float), NULL, &result);
         Helper::assertResult(result, __FILE__, __LINE__);
-        result = clEnqueueWriteBuffer(commandQueue, clBiases, CL_TRUE, 0, filterCount*sizeof(int8_t), biases, 0, NULL, NULL);
+        result = clEnqueueWriteBuffer(commandQueue, clBiases, CL_TRUE, 0, filterCount*sizeof(float), biases, 0, NULL, NULL);
         Helper::assertResult(result, __FILE__, __LINE__);
         result = clSetKernelArg(convolutionKernel, 4, sizeof(cl_mem), (void*)& clBiases);
         Helper::assertResult(result, __FILE__, __LINE__);
@@ -141,7 +141,7 @@ int8_t* CNN::convolution(int8_t* input, int inputSize, int inputDepth, int8_t* f
         result = clSetKernelArg(convolutionKernel, 8, sizeof(int), &padding);
         Helper::assertResult(result, __FILE__, __LINE__);
         // Set output
-        clOutput = clCreateBuffer(context, CL_MEM_READ_WRITE, outputSize*outputSize*outputDepth*sizeof(int8_t), NULL, &result);
+        clOutput = clCreateBuffer(context, CL_MEM_READ_WRITE, outputSize*outputSize*outputDepth*sizeof(float), NULL, &result);
         Helper::assertResult(result, __FILE__, __LINE__);
         result = clSetKernelArg(convolutionKernel, 9, sizeof(cl_mem), (void*)& clOutput);
         Helper::assertResult(result, __FILE__, __LINE__);
@@ -182,7 +182,7 @@ int8_t* CNN::convolution(int8_t* input, int inputSize, int inputDepth, int8_t* f
     Helper::assertResult(result, __FILE__, __LINE__);
 
     // Read output
-    result = clEnqueueReadBuffer(commandQueue, clOutput, CL_TRUE, 0, outputSize * outputSize * outputDepth * sizeof(int8_t), output, 0, NULL, NULL);
+    result = clEnqueueReadBuffer(commandQueue, clOutput, CL_TRUE, 0, outputSize * outputSize * outputDepth * sizeof(float), output, 0, NULL, NULL);
     Helper::assertResult(result, __FILE__, __LINE__);
 
     if(padding != 0) {
@@ -192,10 +192,10 @@ int8_t* CNN::convolution(int8_t* input, int inputSize, int inputDepth, int8_t* f
     return output;
 }
 
-int8_t* CNN::maxPooling(int8_t* input, int inputSize, int inputDepth, int stride, int padding, int poolingSize) {
+float* CNN::maxPooling(float* input, int inputSize, int inputDepth, int stride, int padding, int poolingSize) {
     
     int outputSize = (inputSize - poolingSize) / stride + 1;
-    int8_t* output = new int8_t[inputDepth * outputSize * outputSize];
+    float* output = new float[inputDepth * outputSize * outputSize];
 
     if(padding != 0) {
         input = Tools::applyPadding(input, inputSize, inputDepth, padding);
@@ -210,9 +210,9 @@ int8_t* CNN::maxPooling(int8_t* input, int inputSize, int inputDepth, int stride
     cl_mem clOutput;
     {
         // Set input
-        cl_mem clInput = clCreateBuffer(context, CL_MEM_READ_WRITE, inputSize*inputSize*inputDepth*sizeof(int8_t), NULL, &result);
+        cl_mem clInput = clCreateBuffer(context, CL_MEM_READ_WRITE, inputSize*inputSize*inputDepth*sizeof(float), NULL, &result);
         Helper::assertResult(result, __FILE__, __LINE__);
-        result = clEnqueueWriteBuffer(commandQueue, clInput, CL_TRUE, 0, inputSize*inputSize*inputDepth*sizeof(int8_t), input, 0, NULL, NULL);
+        result = clEnqueueWriteBuffer(commandQueue, clInput, CL_TRUE, 0, inputSize*inputSize*inputDepth*sizeof(float), input, 0, NULL, NULL);
         Helper::assertResult(result, __FILE__, __LINE__);
         result = clSetKernelArg(maxPoolingKernel, 0, sizeof(cl_mem), (void*)& clInput);
         Helper::assertResult(result, __FILE__, __LINE__);
@@ -232,7 +232,7 @@ int8_t* CNN::maxPooling(int8_t* input, int inputSize, int inputDepth, int stride
         result = clSetKernelArg(maxPoolingKernel, 5, sizeof(int), &poolingSize);
         Helper::assertResult(result, __FILE__, __LINE__);
         // Set output
-        clOutput = clCreateBuffer(context, CL_MEM_READ_WRITE, outputSize*outputSize*inputDepth*sizeof(int8_t), NULL, &result);
+        clOutput = clCreateBuffer(context, CL_MEM_READ_WRITE, outputSize*outputSize*inputDepth*sizeof(float), NULL, &result);
         Helper::assertResult(result, __FILE__, __LINE__);
         result = clSetKernelArg(maxPoolingKernel, 6, sizeof(cl_mem), (void*)& clOutput);
         Helper::assertResult(result, __FILE__, __LINE__);
@@ -278,7 +278,7 @@ int8_t* CNN::maxPooling(int8_t* input, int inputSize, int inputDepth, int stride
     Helper::assertResult(result, __FILE__, __LINE__);
 
     // Read output
-    result = clEnqueueReadBuffer(commandQueue, clOutput, CL_TRUE, 0, outputSize * outputSize * inputDepth * sizeof(int8_t), output, 0, NULL, NULL);
+    result = clEnqueueReadBuffer(commandQueue, clOutput, CL_TRUE, 0, outputSize * outputSize * inputDepth * sizeof(float), output, 0, NULL, NULL);
     Helper::assertResult(result, __FILE__, __LINE__);
 
     if(padding != 0) {
@@ -288,8 +288,8 @@ int8_t* CNN::maxPooling(int8_t* input, int inputSize, int inputDepth, int stride
     return output;
 }
 
-int8_t* CNN::fullyConnected(int8_t* input, int inputLength, int8_t* weights, int weightCount) {
-    int8_t* output = new int8_t[weightCount];
+float* CNN::fullyConnected(float* input, int inputLength, float* weights, float* biases, int neuronCount) {
+    float* output = new float[neuronCount];
 
     // OpenCL implementation
     cl_context context = Main::getContext();
@@ -299,9 +299,9 @@ int8_t* CNN::fullyConnected(int8_t* input, int inputLength, int8_t* weights, int
     cl_mem clOutput;
     {
         // Set input
-        cl_mem clInput = clCreateBuffer(context, CL_MEM_READ_WRITE, inputLength*sizeof(int8_t), NULL, &result);
+        cl_mem clInput = clCreateBuffer(context, CL_MEM_READ_WRITE, inputLength*sizeof(float), NULL, &result);
         Helper::assertResult(result, __FILE__, __LINE__);
-        result = clEnqueueWriteBuffer(commandQueue, clInput, CL_TRUE, 0, inputLength*sizeof(int8_t), input, 0, NULL, NULL);
+        result = clEnqueueWriteBuffer(commandQueue, clInput, CL_TRUE, 0, inputLength*sizeof(float), input, 0, NULL, NULL);
         Helper::assertResult(result, __FILE__, __LINE__);
         result = clSetKernelArg(fullyConnectedKernel, 0, sizeof(cl_mem), (void*)& clInput);
         Helper::assertResult(result, __FILE__, __LINE__);
@@ -309,46 +309,100 @@ int8_t* CNN::fullyConnected(int8_t* input, int inputLength, int8_t* weights, int
         result = clSetKernelArg(fullyConnectedKernel, 1, sizeof(int), &inputLength);
         Helper::assertResult(result, __FILE__, __LINE__);
         // Set weights
-        cl_mem clWeights = clCreateBuffer(context, CL_MEM_READ_WRITE, weightCount*sizeof(int8_t), NULL, &result);
+        cl_mem clWeights = clCreateBuffer(context, CL_MEM_READ_WRITE, inputLength*neuronCount*sizeof(float), NULL, &result);
         Helper::assertResult(result, __FILE__, __LINE__);
-        result = clEnqueueWriteBuffer(commandQueue, clWeights, CL_TRUE, 0, weightCount*sizeof(int8_t), weights, 0, NULL, NULL);
+        result = clEnqueueWriteBuffer(commandQueue, clWeights, CL_TRUE, 0, inputLength*neuronCount*sizeof(float), weights, 0, NULL, NULL);
         Helper::assertResult(result, __FILE__, __LINE__);
         result = clSetKernelArg(fullyConnectedKernel, 2, sizeof(cl_mem), (void*)& clWeights);
         Helper::assertResult(result, __FILE__, __LINE__);
-        // Set weight count
-        result = clSetKernelArg(fullyConnectedKernel, 3, sizeof(int), &weightCount);
+        // Set biases
+        cl_mem clBiases = clCreateBuffer(context, CL_MEM_READ_WRITE, neuronCount*sizeof(float), NULL, &result);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        result = clEnqueueWriteBuffer(commandQueue, clBiases, CL_TRUE, 0, neuronCount*sizeof(float), biases, 0, NULL, NULL);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        result = clSetKernelArg(fullyConnectedKernel, 3, sizeof(cl_mem), (void*)& clBiases);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        // Set neuron count
+        result = clSetKernelArg(fullyConnectedKernel, 4, sizeof(int), &neuronCount);
         Helper::assertResult(result, __FILE__, __LINE__);
         // Set output
-        clOutput = clCreateBuffer(context, CL_MEM_READ_WRITE, weightCount*sizeof(int8_t), NULL, &result);
+        clOutput = clCreateBuffer(context, CL_MEM_READ_WRITE, neuronCount*sizeof(float), NULL, &result);
         Helper::assertResult(result, __FILE__, __LINE__);
-        result = clSetKernelArg(fullyConnectedKernel, 4, sizeof(cl_mem), (void*)& clOutput);
+        result = clSetKernelArg(fullyConnectedKernel, 5, sizeof(cl_mem), (void*)& clOutput);
+        Helper::assertResult(result, __FILE__, __LINE__);
+        // Set second
+        int second = neuronCount == 10 ? 1 : 0;
+        result = clSetKernelArg(fullyConnectedKernel, 6, sizeof(int), &second);
         Helper::assertResult(result, __FILE__, __LINE__);
     }
 
     // Execute
-    size_t globalItemSize = weightCount;
+    size_t globalItemSize = neuronCount;
+    //globalItemSize = 1;
     size_t localItemSize = 1;
     result = clEnqueueNDRangeKernel(commandQueue, fullyConnectedKernel, 1, NULL, &globalItemSize, &localItemSize, 0, NULL, NULL);
     Helper::assertResult(result, __FILE__, __LINE__);
 
     // Read output
-    result = clEnqueueReadBuffer(commandQueue, clOutput, CL_TRUE, 0, weightCount * sizeof(int8_t), output, 0, NULL, NULL);
+    result = clEnqueueReadBuffer(commandQueue, clOutput, CL_TRUE, 0, neuronCount * sizeof(float), output, 0, NULL, NULL);
     Helper::assertResult(result, __FILE__, __LINE__);
 
     return output;
 }
 
-float* CNN::softmax(float* input, int inputLength) {
-    float* output = new float[inputLength];
+// float* CNN::fullyConnected2(float* input, int inputLength, float* weights, float* biases, int neuronCount) {
+//     float* output = new float[neuronCount];
 
-    float sum = 0.0f;
-    for(int i = 0; i < inputLength; ++i) {
-        sum += input[i];
-    }
+//     // OpenCL implementation
+//     cl_context context = Main::getContext();
+//     cl_command_queue commandQueue = Main::getCommandQueue();
+//     cl_kernel fullyConnectedKernel = Main::getFullyConnectedKernel();
+//     cl_int result;
+//     cl_mem clOutput;
+//     {
+//         // Set input
+//         cl_mem clInput = clCreateBuffer(context, CL_MEM_READ_WRITE, inputLength*sizeof(float), NULL, &result);
+//         Helper::assertResult(result, __FILE__, __LINE__);
+//         result = clEnqueueWriteBuffer(commandQueue, clInput, CL_TRUE, 0, inputLength*sizeof(float), input, 0, NULL, NULL);
+//         Helper::assertResult(result, __FILE__, __LINE__);
+//         result = clSetKernelArg(fullyConnectedKernel, 0, sizeof(cl_mem), (void*)& clInput);
+//         Helper::assertResult(result, __FILE__, __LINE__);
+//         // Set input length
+//         result = clSetKernelArg(fullyConnectedKernel, 1, sizeof(int), &neuronCount);
+//         Helper::assertResult(result, __FILE__, __LINE__);
+//         // Set weights
+//         cl_mem clWeights = clCreateBuffer(context, CL_MEM_READ_WRITE, inputLength*neuronCount*sizeof(float), NULL, &result);
+//         Helper::assertResult(result, __FILE__, __LINE__);
+//         result = clEnqueueWriteBuffer(commandQueue, clWeights, CL_TRUE, 0, inputLength*neuronCount*sizeof(float), weights, 0, NULL, NULL);
+//         Helper::assertResult(result, __FILE__, __LINE__);
+//         result = clSetKernelArg(fullyConnectedKernel, 2, sizeof(cl_mem), (void*)& clWeights);
+//         Helper::assertResult(result, __FILE__, __LINE__);
+//         // Set biases
+//         cl_mem clBiases = clCreateBuffer(context, CL_MEM_READ_WRITE, neuronCount*sizeof(float), NULL, &result);
+//         Helper::assertResult(result, __FILE__, __LINE__);
+//         result = clEnqueueWriteBuffer(commandQueue, clBiases, CL_TRUE, 0, neuronCount*sizeof(float), biases, 0, NULL, NULL);
+//         Helper::assertResult(result, __FILE__, __LINE__);
+//         result = clSetKernelArg(fullyConnectedKernel, 3, sizeof(cl_mem), (void*)& clBiases);
+//         Helper::assertResult(result, __FILE__, __LINE__);
+//         // Set neuron count
+//         result = clSetKernelArg(fullyConnectedKernel, 4, sizeof(int), &neuronCount);
+//         Helper::assertResult(result, __FILE__, __LINE__);
+//         // Set output
+//         clOutput = clCreateBuffer(context, CL_MEM_READ_WRITE, neuronCount*sizeof(float), NULL, &result);
+//         Helper::assertResult(result, __FILE__, __LINE__);
+//         result = clSetKernelArg(fullyConnectedKernel, 5, sizeof(cl_mem), (void*)& clOutput);
+//         Helper::assertResult(result, __FILE__, __LINE__);
+//     }
 
-    for(int i = 0; i < inputLength; ++i) {
-        output[i] = std::exp(input[i]) / sum; 
-    }
+//     // Execute
+//     size_t globalItemSize = 1;
+//     size_t localItemSize = 1;
+//     result = clEnqueueNDRangeKernel(commandQueue, fullyConnectedKernel, 1, NULL, &globalItemSize, &localItemSize, 0, NULL, NULL);
+//     Helper::assertResult(result, __FILE__, __LINE__);
 
-    return output;
-}
+//     // Read output
+//     result = clEnqueueReadBuffer(commandQueue, clOutput, CL_TRUE, 0, neuronCount * sizeof(float), output, 0, NULL, NULL);
+//     Helper::assertResult(result, __FILE__, __LINE__);
+
+//     return output;
+// }

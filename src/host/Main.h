@@ -10,7 +10,7 @@ public:
     Main();
 
     void initOpenCL();
-    void run();
+    void run(std::string filename);
     static cl_device_id getDevice();
     static cl_context getContext();
     static cl_command_queue getCommandQueue();

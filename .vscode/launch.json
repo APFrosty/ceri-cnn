@@ -23,5 +23,12 @@
                 }
             ]
         }
+    ],
+    "inputs": [
+        {
+            "id": "inputImage",
+            "type": "promptString",
+            "description": "Choose number image"
+        }
     ]
 }

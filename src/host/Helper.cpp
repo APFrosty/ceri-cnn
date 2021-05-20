@@ -11,6 +11,36 @@ void Helper::assertResult(cl_int result, std::string file, int line) {
     };
 }
 
+float* Helper::imageToInput(std::string filename) {
+    std::string path = "../images/" + filename;
+    int width;
+    int height;
+    int nrChannels;
+    stbi_uc* raw = stbi_load(path.c_str(), &width, &height, &nrChannels, 1);
+
+    float* result = new float[width * height];
+    for(int i = 0; i < width * height; ++i) {
+        result[i] = (uint8_t)raw[i] / 255.0f;
+    }
+    stbi_image_free(raw);
+    return result;
+}
+
+void Helper::saveAsImage(std::string filename, float* data, int size, int depth) {
+    uint8_t* output = new uint8_t[size*size*3];
+
+    for(int i = 0; i < depth; ++i) {
+        for(int j = 0; j < size*size; ++j) {
+            output[j*3 + 0] = data[i * size * size + j] * 255.0f;
+            output[j*3 + 1] = data[i * size * size + j] * 255.0f;
+            output[j*3 + 2] = data[i * size * size + j] * 255.0f;
+        }
+
+        std::string path = "../images/" + filename + "_" + std::to_string(i) + ".bmp";
+        stbi_write_bmp(path.c_str(), size, size, 3, output);
+    }
+}
+
 int8_t* Helper::imageToData(std::string filename) {
     std::string path = "../images/" + filename;
     int width;

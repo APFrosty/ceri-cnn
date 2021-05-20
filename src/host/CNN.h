@@ -3,7 +3,7 @@
 namespace CNN {
 
     namespace Tools {
-        int8_t* applyPadding(int8_t* input, int inputSize, int inputDepth, int padding);
+        float* applyPadding(float* input, int inputSize, int inputDepth, int padding);
 
         namespace Convolution {
             int* createBiasIndices(int outputSize, int outputDepth);
@@ -19,8 +19,8 @@ namespace CNN {
         }
     }
 
-    int8_t* convolution(int8_t* input, int inputSize, int inputDepth, int8_t* filters, int8_t* biases, int filterSize, int filterCount, int stride, int padding);
-    int8_t* maxPooling(int8_t* input, int inputSize, int inputDepth, int stride, int padding, int poolingSize);
-    int8_t* fullyConnected(int8_t* input, int inputLength, int8_t* weights, int weightCount);
-    float* softmax(float* input, int inputLength);
+    float* convolution(float* input, int inputSize, int inputDepth, float* filters, float* biases, int filterSize, int filterCount, int stride, int padding);
+    float* maxPooling(float* input, int inputSize, int inputDepth, int stride, int padding, int poolingSize);
+    float* fullyConnected(float* input, int inputLength, float* weights, float* biases, int neuronCount);
+    //float* fullyConnected2(float* input, int inputLength, float* weights, float* biases, int neuronCount);
 }

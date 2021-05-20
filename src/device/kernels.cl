@@ -6,32 +6,34 @@ int determineInputEntry(int outputIndex, int outputSize, int inputSize, int stri
     return entry;
 }
 
-__kernel void convolution(__global const char* restrict input, int inputSize, int inputDepth, __global const char* restrict filters, __global const char* restrict biases, int filterSize, int filterCount, int stride, int padding, __global char* restrict output, __global int* restrict Xs, __global int* restrict Ys, __global int* restrict biasesIndices, int outputSize) {
+__kernel void convolution(__global const float* restrict input, int inputSize, int inputDepth, __global const float* restrict filters, __global const float* restrict biases, int filterSize, int filterCount, int stride, int padding, __global float* restrict output, __global int* restrict Xs, __global int* restrict Ys, __global int* restrict biasesIndices, int outputSize) {
     int i = get_global_id(0);
 
-    output[i] = 0;
+    output[i] = biases[i / (outputSize*outputSize)];
 
-    __global const char* filter = &filters[i / (outputSize*outputSize) * filterSize * filterSize * inputDepth];
-    char bias = biases[i / (outputSize*outputSize)];
+    __global const float* filter = &filters[i / (outputSize*outputSize) * filterSize * filterSize * inputDepth];
 
     for(int filterDepth = 0; filterDepth < inputDepth; ++filterDepth) {
         int offset = filterDepth * inputSize * inputSize;
         int inputEntry = determineInputEntry(i, outputSize, inputSize, stride, filterDepth, Xs, Ys);
         for(int index = 0; index < filterSize * filterSize; ++index) {
-            output[i] += filter[index + filterDepth*filterSize*filterSize] * input[inputEntry + index % filterSize + index / filterSize * inputSize];
+            float left = filter[index + filterDepth*filterSize*filterSize];
+            float right = input[inputEntry + index % filterSize + index / filterSize * inputSize];
+            float result = left * right;
+            output[i] += left * right;
         }
     }
-    output[i] += bias;
+    output[i] = max(0.0f, output[i]);
 }
 
-__kernel void maxPooling(__global const char* restrict input, int inputSize, int inputDepth, int stride, int padding, int poolingSize, __global char* restrict output, __global int* restrict Xs, __global int* restrict Ys, __global int* restrict depths, int outputSize) {
+__kernel void maxPooling(__global const float* restrict input, int inputSize, int inputDepth, int stride, int padding, int poolingSize, __global float* restrict output, __global int* restrict Xs, __global int* restrict Ys, __global int* restrict depths, int outputSize) {
     int i = get_global_id(0);
 
     int depth = depths[i];
     int x = Xs[i];
     int y = Ys[i];
     int entry = (depth * inputSize * inputSize) + y * inputSize + x;
-    char maxValue = 0x00;
+    float maxValue = 0.0f;
     for(int j = 0; j < poolingSize * poolingSize; ++j) {
         x = j % poolingSize;
         y = j / poolingSize;
@@ -40,10 +42,15 @@ __kernel void maxPooling(__global const char* restrict input, int inputSize, int
     output[i] = maxValue;
 }
 
-__kernel void fullyConnected(__global char* restrict input, int inputLength, __global char* restrict weights, int weightCount, __global char* restrict output) {
+__kernel void fullyConnected(__global float* restrict input, int inputLength, __global float* restrict weights, __global float* restrict biases, int neuronCount, __global float* restrict output, int second) {
     int i = get_global_id(0);
-    output[i] = 0;
+    
+    output[i] = biases[i];
     for(int j = 0; j < inputLength; ++j) {
-        output[i] += weights[i] * input[j];
+        float weight = weights[i * inputLength + j];
+        output[i] += weights[i * inputLength + j] * input[j];
+    }
+    if(second == 0) {
+        output[i] = max(0.0f, output[i]);
     }
 }

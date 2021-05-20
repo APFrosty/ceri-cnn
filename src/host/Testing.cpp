@@ -2,8 +2,8 @@
 #include "CNN.h"
 
 void Testing::testingSequence() {
-    //convolutionTest();
-    //poolingTest();
+    convolutionTest();
+    poolingTest();
     //fullyConnectedTest();
     MNISTTest();
 }
@@ -14,47 +14,47 @@ void Testing::convolutionTest() {
     std::string log = "";
     bool allGood = true;
 
-    int8_t input[] = {
-        1, 0, 1, 1, 2,
-        2, 2, 1, 1, 0,
-        2, 0, 0, 0, 0, 
-        1, 2, 2, 1, 1, 
-        1, 2, 2, 0, 2,
+    float input[] = {
+        0, 1, 1, 0, 2,
+        2, 1, 0, 1, 2, 
+        2, 0, 0, 0, 0,
+        0, 0, 1, 1, 1,
+        2, 2, 1, 1, 2,
 
-        1, 0, 1, 2, 1, 
-        0, 2, 2, 1, 2, 
-        1, 1, 1, 2, 2, 
-        2, 2, 0, 2, 1, 
-        2, 1, 1, 0, 1,
+        1, 1, 2, 0, 0,
+        2, 1, 0, 0, 0,
+        0, 2, 0, 2, 1,
+        2, 1, 2, 1, 0,
+        0, 1, 2, 1, 0,
 
-        1, 2, 2, 2, 2,
-        2, 2, 1, 2, 0,
-        1, 0, 2, 2, 1,
-        0, 0, 1, 1, 0,
-        1, 1, 0, 2, 2,
+        0, 2, 0, 2, 0,
+        0, 0, 1, 2, 2,
+        0, 2, 1, 0, 0,
+        2, 0, 0, 2, 0,
+        0, 1, 2, 1, 1
     };
 
-    int8_t filters[] = {
-        -1, -1, -1, 1, -1, -1, -1, -1, -1,
-        -1, -1, 1, -1, -1, -1, -1, 1, 0,
-        1, 0, 1, 1, 0, 0, -1, -1, 0,
+    float filters[] = {
+        1, 1, -1, -1, -1, 0, -1, 0, 0,
+        0, 0, -1, 1, 0, 0, -1, -1, 1,
+        1, -1, 0, -1, 1, 1, 0, -1, 1,
 
-        -1, 0, 0, 0, 0, 1, 1, -1, -1,
-        1, -1, -1, -1, 0, 1, -1, 1, 0,
-        0, 1, 1, 0, 1, 0, -1, -1, 0,
+        -1, 0, -1, 0, 1, 0, -1, 1, -1,
+        1, 0, -1, 1, 0, 0, -1, 0, -1,
+        -1, -1, 0, 1, 1, 1, 1, -1, 0
     };
 
 
-    int8_t biases[] = {1, 0};
+    float biases[] = {1, 0};
 
     int STRIDE = 2;
     int PADDING = 1;
 
-    int8_t* output = CNN::convolution(input, 5, 3, filters, biases, 3, 2, STRIDE, PADDING);
+    float* output = CNN::convolution(input, 5, 3, filters, biases, 3, 2, STRIDE, PADDING);
 
-    int8_t expected[] = {
-        -7, -9, -3, -4, -14, -7, -8, -4, -4,
-        -5, 2, 0, 3, -1, -5, 0, -1, 2,
+    float expected[] = {
+        2, -1, -6, -2, 1, 4, -3, 0, 3,
+        2, 2, 5, -1, 1, -2, 0, 5, 3
     };
 
     for(int i = 0; i < 18; ++i) {
@@ -78,21 +78,27 @@ void Testing::poolingTest() {
     std::string log = "";
     bool allGood = true;
 
-    int8_t input[] = {
+    float input[] = {
         1, 1, 2, 4,
         5, 6, 7, 8,
         3, 2, 1, 0,
-        1, 2, 3, 4
+        1, 2, 3, 4,
+
+        3, 8, 2, 1,
+        9, 4, 1, 13,
+        52, 12, 7, 1,
+        7, 5, 56, 3
     };
 
     int STRIDE = 2;
     int PADDING = 0;
     int POOLING_SIZE = 2;
 
-    int8_t* output = CNN::maxPooling(input, 4, 1, STRIDE, PADDING, POOLING_SIZE);
+    float* output = CNN::maxPooling(input, 4, 2, STRIDE, PADDING, POOLING_SIZE);
 
-    int8_t expected[] = {
-        6, 8, 3, 4
+    float expected[] = {
+        6, 8, 3, 4,
+        9, 13, 52, 56
     };
 
     for(int i = 0; i < 4; ++i) {
@@ -111,26 +117,27 @@ void Testing::poolingTest() {
 }
 
 void Testing::fullyConnectedTest() {
+    /*
     std::cout << "Fully Connected Test: ";
     std::string log = "";
     bool allGood = true;
 
-    int8_t input[] = {
+    float input[] = {
         3, -4, -7, 1, 21, 14
     };
 
-    int8_t weights[] = {
+    float weights[] = {
         4, 6, 9, 10, 12, 18, -2, 14
     };
 
-    uint8_t expected[] = {
+    float expected[] = {
         112, 168, 252, 24, 80, 248, 0xC8, 136
     };
 
-    int8_t* output = CNN::fullyConnected(input, 6, weights, 8);
+    float* output = CNN::fullyConnected(input, 6, weights, 8);
 
     for(int i = 0; i < 8; ++i) {
-        if(memcmp(&output[i], &expected[i], sizeof(int8_t)) != 0) {
+        if(memcmp(&output[i], &expected[i], sizeof(float)) != 0) {
             log += "ERROR: expected[" + std::to_string(i)  +"] != output[" + std::to_string(i) + "] ----> " + std::to_string((int8_t)expected[i]) + " != " + std::to_string(output[i]) + "\n";
             allGood = false;
         }
@@ -142,6 +149,7 @@ void Testing::fullyConnectedTest() {
     }
 
     delete[] output;
+    */
 }
 
 void Testing::MNISTTest() {
@@ -159,10 +167,10 @@ void Testing::MNISTTest() {
         int PADDINGS[] = {1, 1};
 
         for(int i = 0; i < 2; ++i) {
-            int8_t* input = new int8_t[INPUT_SIZES[i]*INPUT_SIZES[i]*INPUT_DEPTHS[i]];
-            int8_t* filters = new int8_t[FILTER_SIZES[i]*FILTER_SIZES[i]*INPUT_DEPTHS[i]];
-            int8_t* biases = new int8_t[FILTER_COUNTS[i]];
-            int8_t* output = CNN::convolution(input, INPUT_SIZES[i], INPUT_DEPTHS[i], filters, biases, FILTER_SIZES[i], FILTER_COUNTS[i], STRIDES[i], PADDINGS[i]);
+            float* input = new float[INPUT_SIZES[i]*INPUT_SIZES[i]*INPUT_DEPTHS[i]];
+            float* filters = new float[FILTER_SIZES[i]*FILTER_SIZES[i]*INPUT_DEPTHS[i]];
+            float* biases = new float[FILTER_COUNTS[i]];
+            float* output = CNN::convolution(input, INPUT_SIZES[i], INPUT_DEPTHS[i], filters, biases, FILTER_SIZES[i], FILTER_COUNTS[i], STRIDES[i], PADDINGS[i]);
             delete[] output;
         }
     }
@@ -177,9 +185,9 @@ void Testing::MNISTTest() {
         int PADDINGS[] = {1, 1};
 
         for(int i = 0; i < 2; ++i) {
-            int8_t* input = new int8_t[INPUT_SIZES[i]*INPUT_SIZES[i]*INPUT_DEPTHS[i]];
-            int8_t* filters = new int8_t[POOLING_SIZES[i]*POOLING_SIZES[i]*INPUT_DEPTHS[i]];
-            int8_t* output = CNN::maxPooling(input, INPUT_SIZES[i], INPUT_DEPTHS[i], STRIDES[i], PADDINGS[i], POOLING_SIZES[i]);
+            float* input = new float[INPUT_SIZES[i]*INPUT_SIZES[i]*INPUT_DEPTHS[i]];
+            float* filters = new float[POOLING_SIZES[i]*POOLING_SIZES[i]*INPUT_DEPTHS[i]];
+            float* output = CNN::maxPooling(input, INPUT_SIZES[i], INPUT_DEPTHS[i], STRIDES[i], PADDINGS[i], POOLING_SIZES[i]);
             delete[] output;
         }
     }
@@ -189,9 +197,9 @@ void Testing::MNISTTest() {
         int WEIGHT_COUNTS[] = {128, 10};
 
         for(int i = 0; i < 2; ++i) {
-            int8_t* input = new int8_t[INPUT_LENGHTS[i]];
-            int8_t* weights = new int8_t[WEIGHT_COUNTS[i]];
-            int8_t* output = CNN::fullyConnected(input, INPUT_LENGHTS[i], weights, WEIGHT_COUNTS[i]);
+            float* input = new float[INPUT_LENGHTS[i]];
+            float* weights = new float[WEIGHT_COUNTS[i]];
+            //float* output = CNN::fullyConnected(input, INPUT_LENGHTS[i], weights, WEIGHT_COUNTS[i]);
         }
     }
 
