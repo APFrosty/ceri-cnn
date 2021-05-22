@@ -7,6 +7,7 @@
 Main* Main::singleton = NULL;
 
 int main(int argc, char const *argv[]) {
+    std::cout << "Program started!" << std::endl;
     Main main;
     main.initOpenCL();
     std::string filename;
@@ -24,6 +25,8 @@ Main::Main() {
 }
 
 void Main::initOpenCL() {
+    std::cout << "Initializing OpenCL..." << std::endl;
+
     cl_int result = clGetPlatformIDs(1, &platform, &numPlatforms);
     Helper::assertResult(result, __FILE__, __LINE__);
 
@@ -35,21 +38,28 @@ void Main::initOpenCL() {
 
     commandQueue = clCreateCommandQueue(context, device, 0, &result);
     Helper::assertResult(result, __FILE__, __LINE__);
-
+    
     cl_program program = Helper::createProgram("kernels");
 
+    std::cout << "\tCreating convolution kernel..." << std::endl;
     convolutionKernel = clCreateKernel(program, "convolution", &result);
     Helper::assertResult(result, __FILE__, __LINE__);
 
+    std::cout << "\tCreating max pooling kernel..." << std::endl;
     maxPoolingKernel = clCreateKernel(program, "maxPooling", &result);
     Helper::assertResult(result, __FILE__, __LINE__);
 
+    std::cout << "\tCreating fully connected kernel..." << std::endl;
     fullyConnectedKernel = clCreateKernel(program, "fullyConnected", &result);
     Helper::assertResult(result, __FILE__, __LINE__);
 }
 
 void Main::run(std::string filename) {
+    std::cout << "Reading input..." << std::endl;
     float* input = Helper::imageToInput(filename);
+    std::cout << "Input read." << std::endl;
+
+    std::cout << "Executing conv1 layer..." << std::endl;
 
     // Conv1 Layer
     int filterCount = 32;
@@ -61,6 +71,8 @@ void Main::run(std::string filename) {
     float* conv1Output = CNN::convolution(input, inputSize, inputDepth, conv1Weights, conv1Bias, filterSize, filterCount, stride, padding);
     delete[] input;
 
+    std::cout << "Executing pool1 layer..." << std::endl;
+
     // Pool1 Layer
     inputSize = 28;
     inputDepth = 32;
@@ -69,6 +81,8 @@ void Main::run(std::string filename) {
     int poolSize = 2;
     float* pool1Output = CNN::maxPooling(conv1Output, inputSize, inputDepth, stride, padding, poolSize);
     delete[] conv1Output;
+
+    std::cout << "Executing conv1 layer..." << std::endl;
 
     // Conv2 Layer
     inputSize = 14;
@@ -80,6 +94,8 @@ void Main::run(std::string filename) {
     float* conv2Output = CNN::convolution(pool1Output, inputSize, inputDepth, conv2Weights, conv2Bias, filterSize, filterCount, stride, padding);
     delete[] pool1Output;
 
+    std::cout << "Executing pool2 layer..." << std::endl;
+
     // Pool2 Layer
     inputSize = 14;
     inputDepth = 64;
@@ -89,16 +105,22 @@ void Main::run(std::string filename) {
     float* pool2Output = CNN::maxPooling(conv2Output, inputSize, inputDepth, stride, padding, poolSize);
     delete[] conv2Output;
 
+    std::cout << "Executing fc1 layer..." << std::endl;
+
     // FC1 Layer
     int inputLength = 3136;
     int neuronCount = 128;
     float* fc1Output = CNN::fullyConnected(pool2Output, inputLength, linear1Weights, linear1Bias, neuronCount);
+
+    std::cout << "Executing fc2 layer..." << std::endl;
 
     // FC2 Layer
     inputLength = 128;
     neuronCount = 10;
     float* fc2Output = CNN::fullyConnected(fc1Output, inputLength, linear2Weights, linear2Bias, neuronCount);
     delete[] fc1Output;
+
+    std::cout << "Displaying results..." << std::endl;
 
     std::multimap<float, int> results;
     for(int i = 0; i < neuronCount; ++i) {
